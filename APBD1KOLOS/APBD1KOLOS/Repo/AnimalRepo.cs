@@ -148,29 +148,28 @@ public class AnimalRepo : IFAnimalRepo
     public async Task AddNewAnimalWithProcedures(AddAnimalDTO addAnimalDTO)
     {
 	    var insert = @"INSERT INTO Animal VALUES(@Name, @AnimalClassID, @AdmissionDate, @OwnerId);
-					   SELECT @@IDENTITY AS ID;";
-	    
+               SELECT @@IDENTITY AS ID;";
+
 	    await using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
 	    await using SqlCommand command = new SqlCommand();
-	    
+
 	    command.Connection = connection;
 	    command.CommandText = insert;
-	    
+
 	    command.Parameters.AddWithValue("@Name", addAnimalDTO.Name);
-	    command.Parameters.AddWithValue("@Type", addAnimalDTO.animalClass);
+	    command.Parameters.AddWithValue("@AnimalClassID", addAnimalDTO.animalClass); // Changed this line to match the SQL query
 	    command.Parameters.AddWithValue("@AdmissionDate", addAnimalDTO.AdmissionDate);
 	    command.Parameters.AddWithValue("@OwnerId", addAnimalDTO.ownerID);
-	    
+
 	    await connection.OpenAsync();
 
 	    var transaction = await connection.BeginTransactionAsync();
 	    command.Transaction = transaction as SqlTransaction;
-	    
-	    
+
 	    try
 	    {
 		    var id = await command.ExecuteScalarAsync();
-    
+
 		    foreach (var procedure in addAnimalDTO.Procedures)
 		    {
 			    command.Parameters.Clear();
@@ -189,5 +188,6 @@ public class AnimalRepo : IFAnimalRepo
 		    await transaction.RollbackAsync();
 		    throw;
 	    }
+
     }
 }
