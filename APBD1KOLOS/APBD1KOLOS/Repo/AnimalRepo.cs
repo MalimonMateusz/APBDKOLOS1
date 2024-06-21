@@ -91,4 +91,103 @@ public class AnimalRepo : IFAnimalRepo
         return animalDto;
 
     }
+
+    public async Task<bool> DoesAnimalClassExist(int id)
+    {
+	    var query = "SELECT 1 FROM Animal_Class WHERE ID = @ID";
+	    await using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
+	    await using SqlCommand command = new SqlCommand();
+
+	    command.Connection = connection;
+	    command.CommandText = query;
+	    command.Parameters.AddWithValue("@ID", id);
+
+	    await connection.OpenAsync();
+
+	    var res = await command.ExecuteScalarAsync();
+
+	    return res is not null;
+    }
+
+    public async Task<bool> DoesOwnerExist(int id)
+    {
+	    var query = "SELECT 1 FROM Owner WHERE ID = @ID";
+
+	    await using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
+	    await using SqlCommand command = new SqlCommand();
+
+	    command.Connection = connection;
+	    command.CommandText = query;
+	    command.Parameters.AddWithValue("@ID", id);
+
+	    await connection.OpenAsync();
+
+	    var res = await command.ExecuteScalarAsync();
+
+	    return res is not null;
+    }
+
+    public async Task<bool> DoesProcedureExist(int id)
+    {
+	    var query = "SELECT 1 FROM [Procedure] WHERE ID = @ID";
+
+	    await using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
+	    await using SqlCommand command = new SqlCommand();
+
+	    command.Connection = connection;
+	    command.CommandText = query;
+	    command.Parameters.AddWithValue("@ID", id);
+
+	    await connection.OpenAsync();
+
+	    var res = await command.ExecuteScalarAsync();
+
+	    return res is not null;
+    }
+
+    public async Task AddNewAnimalWithProcedures(AddAnimalDTO addAnimalDTO)
+    {
+	    var insert = @"INSERT INTO Animal VALUES(@Name, @AnimalClassID, @AdmissionDate, @OwnerId);
+					   SELECT @@IDENTITY AS ID;";
+	    
+	    await using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
+	    await using SqlCommand command = new SqlCommand();
+	    
+	    command.Connection = connection;
+	    command.CommandText = insert;
+	    
+	    command.Parameters.AddWithValue("@Name", addAnimalDTO.Name);
+	    command.Parameters.AddWithValue("@Type", addAnimalDTO.animalClass);
+	    command.Parameters.AddWithValue("@AdmissionDate", addAnimalDTO.AdmissionDate);
+	    command.Parameters.AddWithValue("@OwnerId", addAnimalDTO.ownerID);
+	    
+	    await connection.OpenAsync();
+
+	    var transaction = await connection.BeginTransactionAsync();
+	    command.Transaction = transaction as SqlTransaction;
+	    
+	    
+	    try
+	    {
+		    var id = await command.ExecuteScalarAsync();
+    
+		    foreach (var procedure in addAnimalDTO.Procedures)
+		    {
+			    command.Parameters.Clear();
+			    command.CommandText = "INSERT INTO Procedure_Animal VALUES(@ProcedureId, @AnimalId, @Date)";
+			    command.Parameters.AddWithValue("@ProcedureId", procedure.ProcedureId);
+			    command.Parameters.AddWithValue("@AnimalId", id);
+			    command.Parameters.AddWithValue("@Date", procedure.Date);
+
+			    await command.ExecuteNonQueryAsync();
+		    }
+
+		    await transaction.CommitAsync();
+	    }
+	    catch (Exception)
+	    {
+		    await transaction.RollbackAsync();
+		    throw;
+	    }
+    }
 }
